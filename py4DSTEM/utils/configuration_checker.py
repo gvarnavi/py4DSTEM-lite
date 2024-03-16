@@ -7,10 +7,6 @@ from importlib.util import find_spec
 
 # need a mapping of pypi/conda names to import names
 import_mapping_dict = {
-    "scikit-image": "skimage",
-    "scikit-learn": "sklearn",
-    "scikit-optimize": "skopt",
-    "mp-api": "mp_api",
 }
 
 
@@ -443,69 +439,6 @@ def generic_versions(module: str, depends_with_requires: list[str]) -> None:
         s = f"{s: <80}"
         print(s)
 
-
-def check_cupy_gpu(gratuitously_verbose: bool, **kwargs):
-    """
-    This function performs some additional tests which may be useful in
-    diagnosing Cupy GPU performance
-
-    Args:
-        verbose (bool, optional): Will print additional information e.g. CUDA path, Cupy version. Defaults to False
-        gratuitously_verbose (bool, optional): Will print out atributes of all  Defaults to False.
-    """
-    # import some libaries
-    from pprint import pprint
-    import cupy as cp
-
-    # check that CUDA is detected correctly
-    cuda_availability = cp.cuda.is_available()
-    if cuda_availability:
-        s = f" CUDA is Available "
-        s = create_success(s)
-        s = f"{s: <80}"
-        print(s)
-    else:
-        s = f" CUDA is Unavailable "
-        s = create_failure(s)
-        s = f"{s: <80}"
-        print(s)
-
-    # Count how many GPUs Cupy can detect
-    num_gpus_detected = cp.cuda.runtime.getDeviceCount()
-
-    # print how many GPUs were detected, filter for a couple of special conditons
-    if num_gpus_detected == 0:
-        s = " Detected no GPUs "
-        s = create_failure(s)
-        s = f"{s: <80}"
-        print(s)
-    elif num_gpus_detected >= 24:
-        s = " Detected at least 24 GPUs, could be more "
-        s = create_warning(s)
-        s = f"{s: <80}"
-        print(s)
-    else:
-        s = f" Detected {num_gpus_detected} GPUs "
-        s = create_success(s)
-        s = f"{s: <80}"
-        print(s)
-
-    cuda_path = cp.cuda.get_cuda_path()
-    print(f"Detected CUDA Path:\t{cuda_path}")
-    cupy_version = cp.__version__
-    print(f"Cupy Version:\t\t{cupy_version}")
-
-    # if verbose print extra information
-    if gratuitously_verbose:
-        for i in range(num_gpus_detected):
-            d = cp.cuda.Device(i)
-            s = f"GPU: {i}"
-            s = create_warning(s)
-            print(f" {s} ")
-            pprint(d.attributes)
-    return None
-
-
 def print_no_extra_checks(m: str):
     """
     This function prints a warning style message that the module m
@@ -527,7 +460,6 @@ def print_no_extra_checks(m: str):
 
 # dict of extra check functions
 funcs_dict = {
-    "cupy": check_cupy_gpu,
 }
 
 
