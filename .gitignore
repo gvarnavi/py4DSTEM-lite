@@ -11,7 +11,7 @@ pyrightconfig.json
 __pycache__/
 *.egg-info/
 build/
-dist/
+dist/*.tar.gz
 test/unit_test_data/
 sample_code/data/*h5
 sample_code/data/*dm3
