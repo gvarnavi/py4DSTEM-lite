@@ -5,7 +5,6 @@
 # for bragg virtual imaging methods, goto diskdetection.virtualimage.py
 
 import numpy as np
-import dask.array as da
 from typing import Optional
 import inspect
 
@@ -221,22 +220,7 @@ class DataCubeVirtualImager:
 
             # dask
             if dask is True:
-                # set up a generalized universal function for dask distribution
-                def _apply_mask_dask(self, mask):
-                    virtual_image = np.sum(
-                        np.multiply(self.data, mask), dtype=np.float64
-                    )
-
-                apply_mask_dask = da.as_gufunc(
-                    _apply_mask_dask,
-                    signature="(i,j),(i,j)->()",
-                    output_dtypes=np.float64,
-                    axes=[(2, 3), (0, 1), ()],
-                    vectorize=True,
-                )
-
-                # compute
-                virtual_image = apply_mask_dask(self.data, mask)
+                raise NotImplementedError()
 
         # with center shifting
         else:
