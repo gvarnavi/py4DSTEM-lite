@@ -10,7 +10,6 @@ from py4DSTEM.data import QPoints
 from py4DSTEM.datacube import DataCube
 from py4DSTEM.preprocess.utils import get_maxima_2D
 from py4DSTEM.process.utils.cross_correlate import get_cross_correlation_FT
-from py4DSTEM.braggvectors.diskdetection_aiml import find_Bragg_disks_aiml
 
 
 def find_Bragg_disks(
@@ -181,7 +180,7 @@ def find_Bragg_disks(
 
     # `data` type
     if isinstance(data, DataCube):
-        mode = "datacube"
+        mode = "dc_CPU"
     elif isinstance(data, np.ndarray):
         if data.ndim == 2:
             mode = "dp"
@@ -225,57 +224,16 @@ def find_Bragg_disks(
             er = f"entry {data} for `data` could not be parsed"
             raise Exception(er)
 
-    # CPU/GPU/cluster/ML-AI
-
-    if ML:
-        mode = "dc_ml"
-
-    elif mode == "datacube":
-        if distributed is None and CUDA is False:
-            mode = "dc_CPU"
-        elif distributed is None and CUDA is True:
-            if CUDA_batched is False:
-                mode = "dc_GPU"
-            else:
-                mode = "dc_GPU_batched"
-        else:
-            x = _parse_distributed(distributed)
-            connect, data_file, cluster_path, distributed_mode = x
-            if distributed_mode == "dask":
-                mode = "dc_dask"
-            elif distributed_mode == "ipyparallel":
-                mode = "dc_ipyparallel"
-            else:
-                er = f"unrecognized distributed mode {distributed_mode}"
-                raise Exception(er)
-    # overwrite if ML selected
-
     # select a function
     fn_dict = {
         "dp": _find_Bragg_disks_single,
         "dp_stack": _find_Bragg_disks_stack,
         "dc_CPU": _find_Bragg_disks_CPU,
-        "dc_GPU": _find_Bragg_disks_CUDA_unbatched,
-        "dc_GPU_batched": _find_Bragg_disks_CUDA_batched,
-        "dc_dask": _find_Bragg_disks_dask,
-        "dc_ipyparallel": _find_Bragg_disks_ipp,
-        "dc_ml": find_Bragg_disks_aiml,
     }
     fn = fn_dict[mode]
 
     # prepare kwargs
     kws = {}
-    # distributed kwargs
-    if distributed is not None:
-        kws["connect"] = connect
-        kws["data_file"] = data_file
-        kws["cluster_path"] = cluster_path
-    # ML arguments
-    if ML is True:
-        kws["CUDA"] = CUDA
-        kws["model_path"] = ml_model_path
-        kws["num_attempts"] = ml_num_attempts
-        kws["batch_size"] = ml_batch_size
 
     # if radial background subtraction is requested, add to args
     if radial_bksb and mode == "dc_CPU":
@@ -511,284 +469,3 @@ def _find_Bragg_disks_CPU(
 
     # Return
     return braggvectors
-
-
-# CUDA - unbatched
-
-
-def _find_Bragg_disks_CUDA_unbatched(
-    datacube,
-    probe,
-    filter_function=None,
-    corrPower=1,
-    sigma_dp=0,
-    sigma_cc=2,
-    subpixel="multicorr",
-    upsample_factor=16,
-    minAbsoluteIntensity=0,
-    minRelativeIntensity=0.005,
-    relativeToPeak=0,
-    minPeakSpacing=60,
-    edgeBoundary=20,
-    maxNumPeaks=70,
-):
-    # compute
-    from py4DSTEM.braggvectors.diskdetection_cuda import find_Bragg_disks_CUDA
-
-    peaks = find_Bragg_disks_CUDA(
-        datacube,
-        probe,
-        filter_function=filter_function,
-        corrPower=corrPower,
-        sigma=sigma_cc,
-        subpixel=subpixel,
-        upsample_factor=upsample_factor,
-        minAbsoluteIntensity=minAbsoluteIntensity,
-        minRelativeIntensity=minRelativeIntensity,
-        relativeToPeak=relativeToPeak,
-        minPeakSpacing=minPeakSpacing,
-        edgeBoundary=edgeBoundary,
-        maxNumPeaks=maxNumPeaks,
-        batching=False,
-    )
-
-    # Populate a BraggVectors instance and return
-    braggvectors = BraggVectors(datacube.Rshape, datacube.Qshape)
-    braggvectors._v_uncal = peaks
-    braggvectors._set_raw_vector_getter()
-    braggvectors._set_cal_vector_getter()
-    return braggvectors
-
-
-# CUDA - batched
-
-
-def _find_Bragg_disks_CUDA_batched(
-    datacube,
-    probe,
-    filter_function=None,
-    corrPower=1,
-    sigma_dp=0,
-    sigma_cc=2,
-    subpixel="multicorr",
-    upsample_factor=16,
-    minAbsoluteIntensity=0,
-    minRelativeIntensity=0.005,
-    relativeToPeak=0,
-    minPeakSpacing=60,
-    edgeBoundary=20,
-    maxNumPeaks=70,
-):
-    # compute
-    from py4DSTEM.braggvectors.diskdetection_cuda import find_Bragg_disks_CUDA
-
-    peaks = find_Bragg_disks_CUDA(
-        datacube,
-        probe,
-        filter_function=filter_function,
-        corrPower=corrPower,
-        sigma=sigma_cc,
-        subpixel=subpixel,
-        upsample_factor=upsample_factor,
-        minAbsoluteIntensity=minAbsoluteIntensity,
-        minRelativeIntensity=minRelativeIntensity,
-        relativeToPeak=relativeToPeak,
-        minPeakSpacing=minPeakSpacing,
-        edgeBoundary=edgeBoundary,
-        maxNumPeaks=maxNumPeaks,
-        batching=True,
-    )
-
-    # Populate a BraggVectors instance and return
-    braggvectors = BraggVectors(datacube.Rshape, datacube.Qshape)
-    braggvectors._v_uncal = peaks
-    braggvectors._set_raw_vector_getter()
-    braggvectors._set_cal_vector_getter()
-    return braggvectors
-
-
-# Distributed - ipyparallel
-
-
-def _find_Bragg_disks_ipp(
-    datacube,
-    probe,
-    connect,
-    data_file,
-    cluster_path,
-    filter_function=None,
-    corrPower=1,
-    sigma_dp=0,
-    sigma_cc=2,
-    subpixel="multicorr",
-    upsample_factor=16,
-    minAbsoluteIntensity=0,
-    minRelativeIntensity=0.005,
-    relativeToPeak=0,
-    minPeakSpacing=60,
-    edgeBoundary=20,
-    maxNumPeaks=70,
-):
-    # compute
-    from py4DSTEM.braggvectors.diskdetection_parallel import find_Bragg_disks_ipp
-
-    peaks = find_Bragg_disks_ipp(
-        datacube,
-        probe,
-        filter_function=filter_function,
-        corrPower=corrPower,
-        sigma=sigma_cc,
-        subpixel=subpixel,
-        upsample_factor=upsample_factor,
-        minAbsoluteIntensity=minAbsoluteIntensity,
-        minRelativeIntensity=minRelativeIntensity,
-        relativeToPeak=relativeToPeak,
-        minPeakSpacing=minPeakSpacing,
-        edgeBoundary=edgeBoundary,
-        maxNumPeaks=maxNumPeaks,
-        ipyparallel_client_file=connect,
-        data_file=data_file,
-        cluster_path=cluster_path,
-    )
-
-    # Populate a BraggVectors instance and return
-    braggvectors = BraggVectors(datacube.Rshape, datacube.Qshape)
-    braggvectors._v_uncal = peaks
-    braggvectors._set_raw_vector_getter()
-    braggvectors._set_cal_vector_getter()
-    return braggvectors
-
-
-# Distributed - dask
-
-
-def _find_Bragg_disks_dask(
-    datacube,
-    probe,
-    connect,
-    data_file,
-    cluster_path,
-    filter_function=None,
-    corrPower=1,
-    sigma_dp=0,
-    sigma_cc=2,
-    subpixel="multicorr",
-    upsample_factor=16,
-    minAbsoluteIntensity=0,
-    minRelativeIntensity=0.005,
-    relativeToPeak=0,
-    minPeakSpacing=60,
-    edgeBoundary=20,
-    maxNumPeaks=70,
-):
-    # compute
-    from py4DSTEM.braggvectors.diskdetection_parallel import find_Bragg_disks_dask
-
-    peaks = find_Bragg_disks_dask(
-        datacube,
-        probe,
-        filter_function=filter_function,
-        corrPower=corrPower,
-        sigma=sigma_cc,
-        subpixel=subpixel,
-        upsample_factor=upsample_factor,
-        minAbsoluteIntensity=minAbsoluteIntensity,
-        minRelativeIntensity=minRelativeIntensity,
-        relativeToPeak=relativeToPeak,
-        minPeakSpacing=minPeakSpacing,
-        edgeBoundary=edgeBoundary,
-        maxNumPeaks=maxNumPeaks,
-        dask_client_file=connect,
-        data_file=data_file,
-        cluster_path=cluster_path,
-    )
-
-    # Populate a BraggVectors instance and return
-    braggvectors = BraggVectors(datacube.Rshape, datacube.Qshape)
-    braggvectors._v_uncal = peaks
-    braggvectors._set_raw_vector_getter()
-    braggvectors._set_cal_vector_getter()
-    return braggvectors
-
-
-def _parse_distributed(distributed):
-    """
-    Parse the `distributed` dict argument to determine distribution behavior
-    """
-    import os
-
-    # parse mode (ipyparallel or dask)
-    if "ipyparallel" in distributed:
-        mode = "ipyparallel"
-        if "client_file" in distributed["ipyparallel"]:
-            connect = distributed["ipyparallel"]["client_file"]
-        else:
-            er = 'Within distributed["ipyparallel"], '
-            er += 'missing key for "client_file"'
-            raise KeyError(er)
-
-        try:
-            import ipyparallel as ipp
-
-            c = ipp.Client(url_file=connect, timeout=30)
-
-            if len(c.ids) == 0:
-                er = "No IPyParallel engines attached to cluster!"
-                raise RuntimeError(er)
-        except ImportError:
-            raise ImportError("Unable to import module ipyparallel!")
-
-    elif "dask" in distributed:
-        mode = "dask"
-        if "client" in distributed["dask"]:
-            connect = distributed["dask"]["client"]
-        else:
-            er = 'Within distributed["dask"], missing key for "client"'
-            raise KeyError(er)
-
-    else:
-        er = "Within distributed, you must specify 'ipyparallel' or 'dask'!"
-        raise KeyError(er)
-
-    # parse data file
-    if "data_file" not in distributed:
-        er = "Missing input data file path to distributed! "
-        er += "Required key 'data_file'"
-        raise KeyError(er)
-
-    data_file = distributed["data_file"]
-
-    if not isinstance(data_file, str):
-        er = "Expected string for distributed key 'data_file', "
-        er += f"received {type(data_file)}"
-        raise TypeError(er)
-    if len(data_file.strip()) == 0:
-        er = "Empty data file path from distributed key 'data_file'"
-        raise ValueError(er)
-    elif not os.path.exists(data_file):
-        raise FileNotFoundError("File not found")
-
-    # parse cluster path
-    if "cluster_path" in distributed:
-        cluster_path = distributed["cluster_path"]
-
-        if not isinstance(cluster_path, str):
-            er = "distributed key 'cluster_path' must be of type str, "
-            er += f"received {type(cluster_path)}"
-            raise TypeError(er)
-
-        if len(cluster_path.strip()) == 0:
-            er = "distributed key 'cluster_path' cannot be an empty string!"
-            raise ValueError(er)
-        elif not os.path.exists(cluster_path):
-            er = f"distributed key 'cluster_path' does not exist: {cluster_path}"
-            raise FileNotFoundError(er)
-        elif not os.path.isdir(cluster_path):
-            er = "distributed key 'cluster_path' is not a directory: "
-            er += f"{cluster_path}"
-            raise NotADirectoryError(er)
-    else:
-        cluster_path = None
-
-    # return
-    return connect, data_file, cluster_path, mode
