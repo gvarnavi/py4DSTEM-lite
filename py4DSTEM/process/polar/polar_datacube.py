@@ -106,8 +106,6 @@ class PolarDatacube:
         plot_pdf,
     )
     from py4DSTEM.process.polar.polar_peaks import (
-        find_peaks_single_pattern,
-        find_peaks,
         refine_peaks_local,
         refine_peaks,
         plot_radial_peaks,
@@ -115,6 +113,12 @@ class PolarDatacube:
         model_radial_background,
         make_orientation_histogram,
     )
+
+    def find_peaks_single_pattern():
+        raise NotImplementedError()
+
+    def find_peaks():
+        raise NotImplementedError()
 
     # sampling methods + properties
     def set_radial_bins(

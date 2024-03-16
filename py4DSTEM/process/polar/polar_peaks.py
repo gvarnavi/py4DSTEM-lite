@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt
 
 from scipy.ndimage import gaussian_filter, gaussian_filter1d
 from scipy.signal import peak_prominences
-from skimage.feature import peak_local_max
 from scipy.optimize import curve_fit, leastsq
 import warnings
 
@@ -157,11 +156,7 @@ def find_peaks_single_pattern(
     im_polar_sm[sub] /= im_mask[sub]
 
     # Find local maxima
-    peaks = peak_local_max(
-        im_polar_sm,
-        num_peaks=num_peaks_max,
-        threshold_abs=threshold_abs,
-    )
+    peaks = None
 
     # check if peaks should be removed from the polar transformation mask
     if remove_masked_peaks:

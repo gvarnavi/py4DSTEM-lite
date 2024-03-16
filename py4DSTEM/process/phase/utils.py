@@ -22,7 +22,6 @@ except (ImportError, ModuleNotFoundError):
 from py4DSTEM.process.utils import get_CoM
 from py4DSTEM.process.utils.cross_correlate import align_and_shift_images
 from py4DSTEM.process.utils.utils import electron_wavelength_angstrom
-from skimage.restoration import unwrap_phase
 
 # fmt: off
 
@@ -1755,17 +1754,7 @@ def unwrap_phase_2d(array, weights=None, gauge=None, corner_centered=True, xp=np
 
 
 def unwrap_phase_2d_skimage(array, corner_centered=True, xp=np):
-    if xp is np:
-        array = array.astype(np.float64)
-        unwrapped_array = unwrap_phase(array, wrap_around=corner_centered).astype(
-            xp.float32
-        )
-    else:
-        array = xp.asnumpy(array).astype(np.float64)
-        unwrapped_array = unwrap_phase(array, wrap_around=corner_centered)
-        unwrapped_array = xp.asarray(unwrapped_array).astype(xp.float32)
-
-    return unwrapped_array
+    raise NotImplementedError()
 
 
 def fit_aberration_surface(

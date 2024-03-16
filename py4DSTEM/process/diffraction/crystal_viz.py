@@ -8,7 +8,6 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from scipy.signal import medfilt
 from scipy.ndimage import gaussian_filter
 from scipy.ndimage import distance_transform_edt
-from skimage.morphology import dilation, erosion
 
 import warnings
 import numpy as np
@@ -1885,38 +1884,7 @@ def plot_clusters(
     for a0 in range(self.cluster_sizes.shape[0]):
         if self.cluster_sizes[a0] >= area_min:
             if outline_grains:
-                im_grain[:] = False
-                im_grain[
-                    self.cluster_inds[a0][0, :],
-                    self.cluster_inds[a0][1, :],
-                ] = True
-
-                im_dist = distance_transform_edt(
-                    erosion(
-                        np.invert(im_grain), footprint=np.ones((3, 3), dtype="bool")
-                    )
-                ) - distance_transform_edt(im_grain)
-                im_dist = gaussian_filter(im_dist, sigma=smooth_grains, mode="nearest")
-                im_add = np.exp(im_dist**2 / (-0.5 * outline_thickness**2))
-
-                if fill_grains > 0:
-                    im_dist = distance_transform_edt(
-                        erosion(
-                            np.invert(im_grain), footprint=np.ones((3, 3), dtype="bool")
-                        )
-                    )
-                    im_dist = gaussian_filter(
-                        im_dist, sigma=smooth_grains, mode="nearest"
-                    )
-                    im_add += fill_grains * np.exp(
-                        im_dist**2 / (-0.5 * outline_thickness**2)
-                    )
-
-                # im_add = 1 - np.exp(
-                #     distance_transform_edt(im_grain)**2 \
-                #     / (-2*outline_thickness**2))
-                im_plot += im_add
-                # im_plot = np.minimum(im_plot, im_add)
+                raise NotImplementedError()
             else:
                 # xg,yg = np.unravel_index(self.cluster_inds[a0], im_plot.shape)
                 im_grain[:] = False

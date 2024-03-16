@@ -11,6 +11,5 @@ from py4DSTEM.process.phase.multislice_ptychography import MultislicePtychograph
 from py4DSTEM.process.phase.parallax import Parallax
 from py4DSTEM.process.phase.ptychographic_tomography import PtychographicTomography
 from py4DSTEM.process.phase.singleslice_ptychography import SingleslicePtychography
-from py4DSTEM.process.phase.parameter_optimize import OptimizationParameter, PtychographyOptimizer
 
 # fmt: on
